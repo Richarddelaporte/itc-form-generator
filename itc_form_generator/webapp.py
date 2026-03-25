@@ -2922,6 +2922,9 @@ class ITCHandler(BaseHTTPRequestHandler):
             if 'points_file' in form and form['points_file'].file:
                 points_content = form['points_file'].file.read().decode('utf-8', errors='ignore')
 
+            # Get project settings
+            project_number = form.getvalue('project_number', '') if 'project_number' in form else ''
+
             # Check if AI enhancement is enabled
             use_ai = False
             if 'use_ai' in form:
@@ -3035,6 +3038,7 @@ class ITCHandler(BaseHTTPRequestHandler):
                 'forms': {},
                 'forms_list': forms,  # Store the forms list directly
                 'project': soo.title,
+                'project_number': project_number,
                 'points_count': len(points_list.points) if points_list else 0,
             }
 
@@ -3202,6 +3206,7 @@ class ITCHandler(BaseHTTPRequestHandler):
                 'forms': {},
                 'forms_list': all_forms,
                 'project': project_title,
+                'project_number': project_number,
                 'points_count': len(points_content.split('\n')) if points_content else 0,
             }
 
@@ -3599,7 +3604,7 @@ class ITCHandler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
     def _serve_excel(self, query):
-        """Serve all forms as an Excel file."""
+        """Serve all forms as an Excel file (ACC format)."""
         session_id = query.get('session', [''])[0]
         if session_id not in SESSIONS:
             self._send_error(404, "Session not found")
@@ -3616,9 +3621,10 @@ class ITCHandler(BaseHTTPRequestHandler):
             self._send_error(404, "No forms found")
             return
 
-        # Export to Excel
+        # Export to ACC Excel format
         exporter = FormExporter()
-        excel_data = exporter.export_to_excel(forms)
+        project_number = session.get('project_number', '')
+        excel_data = exporter.export_to_acc_excel(forms, project_number=project_number)
 
         if excel_data is None:
             self._send_error(500, "Excel export not available. Install openpyxl: pip install openpyxl")
@@ -3711,4 +3717,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
