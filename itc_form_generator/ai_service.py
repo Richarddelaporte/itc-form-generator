@@ -518,7 +518,7 @@ Look for:
 Section content:
 {section_content[:6000]}"""
 
-    @staticmethod  
+    @staticmethod
     def extract_interlocks_alarms(section_content: str, system_name: str = "") -> str:
         """Prompt to extract interlocks and alarms."""
         return f"""Extract all safety interlocks, alarms, and protection mechanisms from this SOO section.
@@ -606,15 +606,15 @@ Rules:
 # Confidence Scoring
 # ============================================================================
 
-@dataclass
-
+class ExtractionPrompts:
+    """Prompts for AI-powered SOO extraction."""
     @staticmethod
     def comprehensive_extraction(content: str) -> str:
         """Single comprehensive prompt that extracts everything at once.
-        
+
         This prompt was validated to extract:
         - 26 components (vs 9 regex) from MUA docs
-        - 20 setpoints (vs 12 regex) from MUA docs  
+        - 20 setpoints (vs 12 regex) from MUA docs
         - 12 modes (vs 7 regex) from MUA docs
         - 8 interlocks (vs 4 regex) from MUA docs
         - 9 alarms (vs 2 regex) from MUA docs
@@ -627,7 +627,7 @@ Extract ALL of the following from this document and return as valid JSON:
 2. **components**: ALL equipment/components mentioned (name, type, parent_system)
 3. **setpoints**: ALL setpoints/parameters with their values and units. Look for:
    - Tables with PARAMETER/SET POINT/TIME DELAY columns
-   - Inline values like "maintain temperature above 50°F"  
+   - Inline values like "maintain temperature above 50°F"
    - Any numeric thresholds, delays, or limits mentioned
 4. **operating_modes**: All modes of operation (name, description, conditions)
 5. **interlocks**: Safety interlocks and conditions
@@ -729,7 +729,7 @@ class AIService:
         # Explicit backend
         ai = AIService(AIConfig(backend="openai"))
 
-        # Parse SOO document  
+        # Parse SOO document
         result = ai.parse_soo_document(soo_content)
     """
 
@@ -822,7 +822,7 @@ class AIService:
                 return result
         except Exception as e:
             logger.warning(f"Comprehensive parse failed: {e}, trying multi-pass")
-        
+
         # Fallback: multi-pass for very long documents or if comprehensive fails
         if len(content) > 15000:
             return self._parse_soo_multi_pass(content)
@@ -831,19 +831,19 @@ class AIService:
 
     def _parse_soo_comprehensive(self, content: str) -> Optional[dict]:
         """Parse SOO using the proven comprehensive extraction prompt.
-        
+
         Single LLM call that extracts systems, components, setpoints, modes,
         interlocks, and alarms all at once. Validated to significantly outperform
         regex and multi-pass approaches.
         """
         import json as _json
-        
+
         prompt = PromptTemplates.comprehensive_extraction(content)
         response = self._call_backend(prompt)
-        
+
         if not response:
             return None
-        
+
         # Parse JSON from response (handle markdown code fences)
         text = response.strip()
         if text.startswith('```'):
@@ -851,7 +851,7 @@ class AIService:
         if text.endswith('```'):
             text = text.rsplit('```', 1)[0]
         text = text.strip()
-        
+
         try:
             data = _json.loads(text)
         except _json.JSONDecodeError:
@@ -866,7 +866,7 @@ class AIService:
                     return None
             else:
                 return None
-        
+
         # Restructure flat AI output to nested format expected by parser
         # AI returns: {systems: [...], components: [...], setpoints: [...], ...}
         # Parser expects: {systems: [{..., components: [...], setpoints: [...]}]}
@@ -882,7 +882,7 @@ class AIService:
                 sys.setdefault('alarms', [])
                 sys.setdefault('tag', '')
                 systems_by_name[sys_name.lower()] = sys
-            
+
             # Helper: find best matching system for an item
             def find_system(item, field='parent_system'):
                 parent = (item.get(field) or item.get('context') or '').lower()
@@ -898,54 +898,54 @@ class AIService:
                 if systems_by_name:
                     return next(iter(systems_by_name.values()))
                 return None
-            
+
             # Distribute components into systems
             for comp in data.get('components', []):
                 sys = find_system(comp)
                 if sys:
                     sys['components'].append(comp)
-            
+
             # Distribute setpoints into systems
             for sp in data.get('setpoints', []):
                 sys = find_system(sp)
                 if sys:
                     sys['setpoints'].append(sp)
-            
+
             # Distribute operating_modes into systems
             for mode in data.get('operating_modes', []):
                 sys = find_system(mode)
                 if sys:
                     sys['operating_modes'].append(mode)
-            
+
             # Distribute interlocks into systems
             for intlk in data.get('interlocks', []):
                 sys = find_system(intlk)
                 if sys:
                     sys['interlocks'].append(intlk)
-            
+
             # Distribute alarms into systems
             for alarm in data.get('alarms', []):
                 sys = find_system(alarm)
                 if sys:
                     sys['alarms'].append(alarm)
-            
+
             # Clean up: remove top-level flat lists
             data.pop('components', None)
             data.pop('setpoints', None)
             data.pop('operating_modes', None)
             data.pop('interlocks', None)
             data.pop('alarms', None)
-            
+
             logger.info(f"AI comprehensive: restructured {len(systems_by_name)} systems")
-        
+
         return data
-    
+
     def _call_backend(self, prompt: str) -> Optional[str]:
         """Call the configured AI backend with a prompt."""
         if not self.backend:
             if not self.initialize():
                 return None
-        
+
         try:
             return self.backend.call(prompt)
         except Exception as e:
@@ -1246,7 +1246,3 @@ Return ONLY a JSON array of 10-20 check items:
             if any(kw in name_lower or kw in tag_upper.lower() for kw in keywords):
                 return sys_type
         return "generic"
-
-
-
-
