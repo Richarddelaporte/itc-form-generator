@@ -105,7 +105,7 @@ def generate():
         # Check for MUA-specific content
         from itc_form_generator.mua_parser import MUASOOParser
         mua_parser = MUASOOParser()
-        is_mua = mua_parser.detect_mua_content(soo_content)
+        is_mua = 'mua' in soo_content.lower() or 'make-up air' in soo_content.lower() or 'make up air' in soo_content.lower()
 
         # Generate forms
         forms = []
@@ -264,4 +264,3 @@ def generate_from_template():
     except Exception as e:
         logger.error(f"Template generation failed: {e}", exc_info=True)
         return jsonify(error=str(e)), 500
-
