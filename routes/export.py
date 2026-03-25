@@ -94,18 +94,25 @@ def download_excel(session_id):
 
     try:
         exporter = current_app.services['exporter']
-        excel_buffer = io.BytesIO()
-        exporter.export_all_to_excel(session_data.get('forms', []), excel_buffer)
-        excel_buffer.seek(0)
+        project_number = session_data.get('project_number', '')
+
+        # Use pre-converted InspectionForm objects if available
+        inspection_forms = session_data.get('inspection_forms', [])
+        if not inspection_forms:
+            return jsonify(error="No exportable forms in session"), 400
+
+        excel_bytes = exporter.export_to_acc_excel(inspection_forms, project_number=project_number)
+        if not excel_bytes:
+            return jsonify(error="Excel export not available (openpyxl missing)"), 500
+
+        excel_buffer = io.BytesIO(excel_bytes)
 
         return send_file(
             excel_buffer,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=f"{session_data.get('project_number', 'forms')}_itc_forms.xlsx"
+            download_name=f"{project_number or 'forms'}_itc_forms.xlsx"
         )
     except Exception as e:
-        logger.error(f"Excel export failed: {e}")
+        logger.error(f"ACC Excel export failed: {e}")
         return jsonify(error=f"Excel export failed: {str(e)}"), 500
-
-

@@ -103,10 +103,7 @@ def generate():
         detected_types = detect_document_type(soo_content)
 
         # Check for MUA-specific content
-        from itc_form_generator.mua_parser import MUASOOParser
-        mua_parser = MUASOOParser()
-        is_mua = mua_parser.detect_mua_content(soo_content)
-
+        is_mua = 'mua' in soo_content.lower() or 'make-up air' in soo_content.lower() or 'make up air' in soo_content.lower()
         # Generate forms
         forms = []
         FormGeneratorClass = services['form_generator_class']
@@ -129,6 +126,54 @@ def generate():
         # Export forms
         exporter = services['exporter']
         exported_files = []
+
+        # Convert form dicts to InspectionForm objects for the ACC exporter
+        from itc_form_generator.models import InspectionForm, FormSection, CheckItem, FormType, CheckItemType, Priority
+        inspection_forms = []
+        for form in forms:
+            try:
+                form_type_str = form.get('form_type', form.get('system_type', 'ITC'))
+                form_type = FormType(form_type_str) if form_type_str in [ft.value for ft in FormType] else FormType.ITC
+
+                sections = []
+                for sec in form.get('sections', []):
+                    items = []
+                    for idx, item in enumerate(sec.get('items', sec.get('check_items', []))):
+                        check_type_str = item.get('check_type', 'Verification')
+                        try:
+                            check_type = CheckItemType(check_type_str)
+                        except ValueError:
+                            check_type = CheckItemType.VERIFICATION
+                        priority_str = item.get('priority', 'Medium')
+                        try:
+                            priority = Priority(priority_str)
+                        except ValueError:
+                            priority = Priority.MEDIUM
+                        items.append(CheckItem(
+                            id=item.get('id', f"{idx+1}"),
+                            description=item.get('description', ''),
+                            check_type=check_type,
+                            priority=priority,
+                            acceptance_criteria=item.get('acceptance_criteria', ''),
+                            method=item.get('method', ''),
+                            expected_value=item.get('expected_value', ''),
+                        ))
+                    sections.append(FormSection(
+                        title=sec.get('name', sec.get('title', '')),
+                        description=sec.get('description', ''),
+                        check_items=items,
+                    ))
+                inspection_forms.append(InspectionForm(
+                    form_type=form_type,
+                    title=form.get('name', form.get('title', '')),
+                    system=form.get('system_type', form.get('system', '')),
+                    system_tag=form.get('system_tag', ''),
+                    project=project_number,
+                    sections=sections,
+                ))
+            except Exception as e:
+                logger.warning(f"Could not convert form to InspectionForm: {e}")
+
         for form in forms:
             # Render to HTML
             from itc_form_generator.renderer import HTMLRenderer
@@ -149,25 +194,33 @@ def generate():
                 'sections': len(form.get('sections', [])),
             })
 
-            # Also export to Excel if supported
+        # Export all forms to a single ACC Excel workbook
+        if inspection_forms:
             try:
-                excel_filename = filename.replace('.html', '.xlsx')
+                excel_filename = secure_filename(f"{project_number or 'itc'}_acc_checklist.xlsx")
                 excel_path = os.path.join(output_dir, excel_filename)
-                exporter.export_to_excel(form, excel_path)
-                exported_files.append({
-                    'filename': excel_filename,
-                    'system_type': form.get('system_type', 'Unknown'),
-                    'name': form.get('name', '') + ' (Excel)',
-                    'format': 'excel',
-                })
+                excel_bytes = exporter.export_to_acc_excel(
+                    inspection_forms,
+                    project_number=project_number,
+                )
+                if excel_bytes:
+                    with open(excel_path, 'wb') as ef:
+                        ef.write(excel_bytes)
+                    exported_files.append({
+                        'filename': excel_filename,
+                        'system_type': 'ACC',
+                        'name': 'ACC Checklist (Excel)',
+                        'format': 'excel',
+                    })
             except Exception as e:
-                logger.warning(f"Excel export failed: {e}")
+                logger.warning(f"ACC Excel export failed: {e}")
 
         elapsed = round(time.time() - start_time, 2)
 
         # Store session data
         current_app.sessions[session_id] = {
             'forms': forms,
+            'inspection_forms': inspection_forms,
             'files': exported_files,
             'output_dir': output_dir,
             'project_number': project_number,
@@ -276,17 +329,17 @@ def upload_example():
     try:
         if 'example_file' not in request.files:
             return jsonify(error='No file provided'), 400
-        
+
         file = request.files['example_file']
         if not file or not file.filename:
             return jsonify(error='No file selected'), 400
-        
+
         from itc_form_generator.example_form_parser import get_example_store
         store = get_example_store()
-        
+
         content = file.read().decode('utf-8', errors='replace')
         result = store.learn_from_example(content, file.filename)
-        
+
         return jsonify(success=True, message=f'Learned from {file.filename}', details=result)
     except Exception as e:
         return jsonify(error=str(e)), 500
@@ -297,21 +350,21 @@ def generate_integrated():
     """Generate forms using integrated template system."""
     try:
         services = current_app.services
-        
+
         # Get form data
         soo_file = request.files.get('soo_file')
         if not soo_file:
             return jsonify(error='No SOO file provided'), 400
-        
+
         soo_content = soo_file.read().decode('utf-8', errors='replace')
         template_type = request.form.get('template_type', 'auto')
         project_number = request.form.get('project_number', '')
         building_area = request.form.get('building_area', '')
-        
+
         # Parse SOO
         parser = services['parser']
         soo_data = parser.parse(soo_content)
-        
+
         # Generate with template integration
         from itc_form_generator.template_integration import generate_integrated_form
         result = generate_integrated_form(
@@ -320,7 +373,7 @@ def generate_integrated():
             project_number=project_number,
             building_area=building_area,
         )
-        
+
         return jsonify(success=True, forms=result)
     except ImportError:
         return jsonify(error='Template integration module not available'), 500
@@ -340,5 +393,3 @@ def examples_stats():
         return jsonify(total=0, types={})
     except Exception as e:
         return jsonify(total=0, types={}, error=str(e))
-
-
