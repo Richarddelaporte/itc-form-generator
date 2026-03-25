@@ -1,0 +1,35 @@
+# ITC Form Generator — Production Dockerfile
+FROM python:3.12-slim
+
+# Install system dependencies for PDF parsing (optional)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create output directory
+RUN mkdir -p /tmp/itc_forms
+
+# Set environment
+ENV FLASK_ENV=production
+ENV OUTPUT_DIR=/tmp/itc_forms
+ENV PORT=8080
+
+EXPOSE ${PORT}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')" || exit 1
+
+# Run with gunicorn
+CMD ["gunicorn", "wsgi:app", "--config", "gunicorn.conf.py"]
+

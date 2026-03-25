@@ -1,0 +1,44 @@
+Point Name,Type,Description,Units,Range,Equipment,System
+AHU-01_SAT,AI,Supply Air Temperature,°F,40-90,AHU-01,Air Handling Unit 01
+AHU-01_RAT,AI,Return Air Temperature,°F,55-85,AHU-01,Air Handling Unit 01
+AHU-01_MAT,AI,Mixed Air Temperature,°F,40-85,AHU-01,Air Handling Unit 01
+AHU-01_OAT,AI,Outside Air Temperature,°F,-20-120,AHU-01,Air Handling Unit 01
+AHU-01_SAP,AI,Supply Air Pressure,inWC,0-5,AHU-01,Air Handling Unit 01
+AHU-01_SF_SPD,AI,Supply Fan Speed Feedback,%,0-100,AHU-01,Air Handling Unit 01
+AHU-01_RF_SPD,AI,Return Fan Speed Feedback,%,0-100,AHU-01,Air Handling Unit 01
+AHU-01_CHW_VLV_POS,AI,Chilled Water Valve Position,%,0-100,AHU-01,Air Handling Unit 01
+AHU-01_HW_VLV_POS,AI,Hot Water Valve Position,%,0-100,AHU-01,Air Handling Unit 01
+AHU-01_OA_DMR_POS,AI,Outside Air Damper Position,%,0-100,AHU-01,Air Handling Unit 01
+AHU-01_SAT_SP,AO,Supply Air Temperature Setpoint,°F,55-75,AHU-01,Air Handling Unit 01
+AHU-01_SAP_SP,AO,Supply Air Pressure Setpoint,inWC,0.5-3.0,AHU-01,Air Handling Unit 01
+AHU-01_SF_SPD_CMD,AO,Supply Fan Speed Command,%,0-100,AHU-01,Air Handling Unit 01
+AHU-01_RF_SPD_CMD,AO,Return Fan Speed Command,%,0-100,AHU-01,Air Handling Unit 01
+AHU-01_CHW_VLV_CMD,AO,Chilled Water Valve Command,%,0-100,AHU-01,Air Handling Unit 01
+AHU-01_HW_VLV_CMD,AO,Hot Water Valve Command,%,0-100,AHU-01,Air Handling Unit 01
+AHU-01_OA_DMR_CMD,AO,Outside Air Damper Command,%,0-100,AHU-01,Air Handling Unit 01
+AHU-01_SF_STS,DI,Supply Fan Status,On/Off,,AHU-01,Air Handling Unit 01
+AHU-01_RF_STS,DI,Return Fan Status,On/Off,,AHU-01,Air Handling Unit 01
+AHU-01_SF_VFD_FLT,DI,Supply Fan VFD Fault,Normal/Fault,,AHU-01,Air Handling Unit 01
+AHU-01_RF_VFD_FLT,DI,Return Fan VFD Fault,Normal/Fault,,AHU-01,Air Handling Unit 01
+AHU-01_FILTER_DP,DI,Filter Differential Pressure Alarm,Normal/Alarm,,AHU-01,Air Handling Unit 01
+AHU-01_SMOKE_DET,DI,Smoke Detector Status,Normal/Alarm,,AHU-01,Air Handling Unit 01
+AHU-01_FREEZE_STAT,DI,Freezestat Status,Normal/Alarm,,AHU-01,Air Handling Unit 01
+AHU-01_SF_START,DO,Supply Fan Start Command,Off/On,,AHU-01,Air Handling Unit 01
+AHU-01_RF_START,DO,Return Fan Start Command,Off/On,,AHU-01,Air Handling Unit 01
+AHU-01_CHW_VLV_EN,DO,Chilled Water Valve Enable,Off/On,,AHU-01,Air Handling Unit 01
+AHU-01_HW_VLV_EN,DO,Hot Water Valve Enable,Off/On,,AHU-01,Air Handling Unit 01
+CRAH-01_SAT,AI,Supply Air Temperature,°F,55-75,CRAH-01,Computer Room Air Handler 01
+CRAH-01_RAT,AI,Return Air Temperature,°F,65-85,CRAH-01,Computer Room Air Handler 01
+CRAH-01_SAH,AI,Supply Air Humidity,%RH,30-60,CRAH-01,Computer Room Air Handler 01
+CRAH-01_RAH,AI,Return Air Humidity,%RH,30-70,CRAH-01,Computer Room Air Handler 01
+CRAH-01_SAT_SP,AO,Supply Air Temperature Setpoint,°F,60-72,CRAH-01,Computer Room Air Handler 01
+CRAH-01_SAH_SP,AO,Supply Air Humidity Setpoint,%RH,40-55,CRAH-01,Computer Room Air Handler 01
+CRAH-01_FAN_STS,DI,Fan Status,On/Off,,CRAH-01,Computer Room Air Handler 01
+CRAH-01_COMP_STS,DI,Compressor Status,On/Off,,CRAH-01,Computer Room Air Handler 01
+CRAH-01_COMP_FLT,DI,Compressor Fault,Normal/Fault,,CRAH-01,Computer Room Air Handler 01
+CRAH-01_HIGH_TEMP,DI,High Temperature Alarm,Normal/Alarm,,CRAH-01,Computer Room Air Handler 01
+CRAH-01_LOW_TEMP,DI,Low Temperature Alarm,Normal/Alarm,,CRAH-01,Computer Room Air Handler 01
+CRAH-01_HIGH_HUMID,DI,High Humidity Alarm,Normal/Alarm,,CRAH-01,Computer Room Air Handler 01
+CRAH-01_LOW_HUMID,DI,Low Humidity Alarm,Normal/Alarm,,CRAH-01,Computer Room Air Handler 01
+CRAH-01_FAN_START,DO,Fan Start Command,Off/On,,CRAH-01,Computer Room Air Handler 01
+CRAH-01_COMP_EN,DO,Compressor Enable,Off/On,,CRAH-01,Computer Room Air Handler 01

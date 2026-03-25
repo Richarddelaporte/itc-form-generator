@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "itc-form-generator"
+version = "2.0.0"
+description = "AI-powered ITC inspection/testing/commissioning form generator for HVAC and building controls"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Richard Delaporte"}
+]
+keywords = ["ITC", "commissioning", "HVAC", "BMS", "form-generator", "building-controls", "SOO"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Office/Business",
+]
+dependencies = [
+    "flask>=3.0.0",
+    "gunicorn>=22.0.0",
+    "pymupdf>=1.24.0",
+    "openpyxl>=3.1.0",
+    "python-dotenv>=1.0.0",
+    "werkzeug>=3.0.0",
+]
+
+[project.optional-dependencies]
+ai = [
+    "openai>=1.0.0",
+    "anthropic>=0.20.0",
+]
+ai-local = [
+    "ollama>=0.1.0",
+]
+ocr = [
+    "pytesseract>=0.3.10",
+]
+excel = [
+    "xlsxwriter>=3.2.0",
+]
+all = [
+    "itc-form-generator[ai,ai-local,ocr,excel]",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=24.0.0",
+    "ruff>=0.3.0",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+itc-form-generator = "itc_form_generator.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/rdelaporte/itc-form-generator"
+Documentation = "https://github.com/rdelaporte/itc-form-generator#readme"
+Issues = "https://github.com/rdelaporte/itc-form-generator/issues"
+
+[tool.setuptools.packages.find]
+include = ["itc_form_generator*"]
+
+[tool.setuptools.package-data]
+itc_form_generator = [
+    "templates/*.html",
+    "static/css/*.css",
+    "static/js/*.js",
+    "static/img/*",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+

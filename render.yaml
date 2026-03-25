@@ -1,0 +1,23 @@
+# Render.com deployment configuration
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: itc-form-generator
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: USE_AI
+        value: "true"
+      - key: AI_BACKEND
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: PORT
+        value: "8080"
+

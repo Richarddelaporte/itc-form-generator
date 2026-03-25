@@ -1,0 +1,27 @@
+# ITC Form Generator v2.0.0 — Dependencies
+
+# Web framework
+flask>=3.0.0
+gunicorn>=22.0.0
+
+# Document parsing
+pymupdf>=1.24.0          # PDF parsing (fitz)
+pytesseract>=0.3.10      # OCR support (optional)
+
+# Excel/spreadsheet
+openpyxl>=3.1.0          # Excel read/write
+xlsxwriter>=3.2.0        # Excel output (alternative)
+
+# Data processing
+python-dateutil>=2.9.0
+
+# AI service backends (install what you need)
+# pip install openai       # For OpenAI backend
+# pip install anthropic    # For Anthropic backend
+# pip install ollama       # For local Ollama backend
+# metagen is available on Meta internal network
+
+# Utilities
+python-dotenv>=1.0.0     # Environment variable management
+werkzeug>=3.0.0          # WSGI utilities (Flask dep)
+

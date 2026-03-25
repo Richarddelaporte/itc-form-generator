@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Error — ITC Form Generator{% endblock %}
+
+{% block content %}
+<div class="container" style="text-align: center; padding: 60px 20px;">
+    <h1 style="font-size: 48px; color: #e53e3e;">⚠️</h1>
+    <h2 style="color: #1e40af;">{{ message or "Something went wrong" }}</h2>
+    <p style="color: #666; margin: 20px 0;">
+        {{ details or "The requested resource could not be found or an error occurred." }}
+    </p>
+    <a href="/" style="display: inline-block; padding: 12px 24px; background: #1e40af; color: white; 
+       text-decoration: none; border-radius: 8px; margin-top: 20px;">
+        ← Back to Upload Page
+    </a>
+</div>
+{% endblock %}
+

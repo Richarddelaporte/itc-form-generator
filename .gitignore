@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+*.xlsx
+/tmp/
+feedback_data.json
+learned_examples.json
+

@@ -1,0 +1,96 @@
+# ITC Form Generator - Docker Ignore
+# Exclude development and build files from container
+
+# Version control
+.git/
+.gitignore
+.hg/
+.svn/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+*.so
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+*.spec
+
+# PyInstaller
+*.manifest
+*.exe
+ITC_Form_Generator_Web.exe
+
+# Package distribution
+package/
+*.zip
+
+# Test and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Documentation (keep essential docs)
+docs/
+*.pdf
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Local configuration
+.env.local
+.env.*.local
+config.local.*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Development guides (not needed in container)
+POINTS_INTEGRATION_GUIDE.md
+SOO_POINTS_INTEGRATION.md
+NEST_DEPLOYMENT.md
+
+# Test output files
+test_output.xlsx
+*.test.*

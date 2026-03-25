@@ -1,0 +1,789 @@
+{% extends "base.html" %}
+
+{% block title %}ITC Form Generator — Upload{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <h1>🔧 ITC Form Generator</h1>
+        <p class="subtitle">Generate Inspection, Testing & Commissioning forms from Sequence of Operations documents</p>
+
+        <form method="POST" action="/generate" enctype="multipart/form-data" id="uploadForm">
+            <div class="upload-section">
+                <h3>📄 Sequence of Operations Document <span style="color: red;">*</span></h3>
+                <label for="sooFile" class="drop-zone" id="sooDropZone">
+                    <input type="file" name="soo_file" id="sooFile" accept=".md,.txt,.pdf,.doc,.docx" required
+                           onchange="document.getElementById('sooFilename').textContent = this.files[0] ? '✓ ' + this.files[0].name : ''; this.parentElement.classList.toggle('has-file', this.files.length > 0);">
+                    <span class="icon">📋</span>
+                    <span class="text">Drag & drop your SOO file here, or click to browse</span>
+                    <span class="formats">Supported: PDF, Markdown (.md), Text (.txt)</span>
+                    <span class="filename" id="sooFilename"></span>
+                </label>
+            </div>
+
+            <div class="upload-section">
+                <h3>📊 Points List <span class="optional-badge">Optional</span></h3>
+                <label for="pointsFile" class="drop-zone" id="pointsDropZone">
+                    <input type="file" name="points_file" id="pointsFile" accept=".csv,.tsv,.txt,.xlsx"
+                           onchange="document.getElementById('pointsFilename').textContent = this.files[0] ? '✓ ' + this.files[0].name : ''; this.parentElement.classList.toggle('has-file', this.files.length > 0);">
+                    <span class="icon">📈</span>
+                    <span class="text">Drag & drop your points list CSV/TSV, or click to browse</span>
+                    <span class="filename" id="pointsFilename"></span>
+                </label>
+            </div>
+
+            <div class="upload-section">
+                <h3>🤖 AI Enhancement <span class="optional-badge">Beta</span></h3>
+                <div style="background: #f8f9fa; border-radius: 8px; padding: 15px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" name="use_ai" value="true" id="useAiCheckbox" style="width: 20px; height: 20px; margin-right: 12px; accent-color: #667eea;">
+                        <div>
+                            <strong style="color: #333;">Enable AI-Enhanced Form Generation</strong>
+                            <p style="color: #666; font-size: 12px; margin-top: 4px;">
+                                Uses Meta's Llama AI to generate context-specific check items and acceptance criteria.
+                                Results in more accurate, system-specific inspection forms.
+                            </p>
+                        </div>
+                    </label>
+                    <div id="aiInfoBox" style="display: none; margin-top: 12px; padding: 10px; background: #e8f4fd; border-radius: 6px; font-size: 12px; color: #1e40af;">
+                        ⚡ <strong>Note:</strong> AI enhancement may take 30-60 seconds longer but produces more specific check items tailored to your system's setpoints, operating modes, and interlocks.
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn">Generate ITC Forms</button>
+        </form>
+
+        <!-- Example Form Upload Section -->
+        <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e5e7eb;">
+            <h2 style="color: #333; margin-bottom: 8px;">📚 Train AI with Example Forms</h2>
+            <p style="color: #666; margin-bottom: 20px; font-size: 14px;">
+                Upload existing ITC forms (Excel/CSV) from other companies to help the AI learn industry best practices and generate better forms.
+            </p>
+
+            <form method="POST" action="/upload-example" enctype="multipart/form-data" id="exampleForm">
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
+                    <div style="flex: 2; min-width: 250px;">
+                        <span style="display: block; font-weight: 500; color: #555; margin-bottom: 5px;">Example Form File *</span>
+                        <label for="exampleFile" class="drop-zone" id="exampleDropZone" style="padding: 20px;">
+                            <input type="file" name="example_file" id="exampleFile" accept=".xlsx,.xls,.csv" required
+                                   onchange="document.getElementById('exampleFilename').textContent = this.files[0] ? '✓ ' + this.files[0].name : ''; this.parentElement.classList.toggle('has-file', this.files.length > 0);">
+                            <span class="icon" style="font-size: 30px;">📑</span>
+                            <span class="text" style="font-size: 13px;">Drop Excel/CSV form here</span>
+                            <span class="filename" id="exampleFilename"></span>
+                        </label>
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 5px;">Source/Company *</label>
+                            <input type="text" name="source" placeholder="e.g., Acme Commissioning" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 5px;">System Type</label>
+                            <select name="system_type" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px;">
+                                <option value="General">General / Multiple</option>
+                                <option value="RSB">RSB - Row Switch Board</option>
+                                <option value="ATS">ATS - Automatic Transfer Switch</option>
+                                <option value="Generator">Generator / Genset</option>
+                                <option value="UPS">UPS - Uninterruptible Power</option>
+                                <option value="PDU">PDU - Power Distribution Unit</option>
+                                <option value="Transformer">Transformer</option>
+                                <option value="AHU">Air Handling Unit (AHU)</option>
+                                <option value="FCU">Fan Coil Unit (FCU)</option>
+                                <option value="Chiller">Chiller</option>
+                                <option value="CRAH">CRAH/CRAC</option>
+                                <option value="Cooling Tower">Cooling Tower</option>
+                                <option value="Pump">Pump</option>
+                                <option value="Data Hall">Data Hall/Data Center</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" style="padding: 12px 24px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer;">
+                    📤 Upload & Learn from Example
+                </button>
+            </form>
+
+            <!-- Learned Examples Stats -->
+            <div id="learnedExamplesStats" style="margin-top: 20px; padding: 15px; background: #f0fdf4; border-radius: 8px; display: none;">
+                <h4 style="color: #166534; margin-bottom: 10px;">🧠 Learned Examples</h4>
+                <div id="examplesContent"></div>
+            </div>
+        </div>
+
+        <!-- Quick Generate from Template Section -->
+        <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e5e7eb;">
+            <h2 style="color: #333; margin-bottom: 8px;">⚡ Quick Generate from Template</h2>
+            <p style="color: #666; margin-bottom: 20px; font-size: 14px;">
+                Generate ITC forms instantly using pre-built templates based on production data from BIM360/ACC.
+                No document upload required.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <!-- RSB Template Card -->
+                <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; border: 2px solid #e5e7eb;">
+                    <h3 style="color: #333; margin-bottom: 10px;">🔌 RSB - Row Switch Board</h3>
+                    <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                        Electrical distribution equipment forms with 45,770+ production uses
+                    </p>
+                    <form id="rsbTemplateForm" style="display: flex; flex-direction: column; gap: 12px;">
+                        <div>
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 4px; font-size: 13px;">Level</label>
+                            <select id="rsbLevel" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <option value="L4">L4 - Commissioning</option>
+                                <option value="L3">L3 - Combined BMS</option>
+                            </select>
+                        </div>
+                        <div id="rsbL4Options">
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 4px; font-size: 13px;">Form Type</label>
+                            <select id="rsbFormType" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <option value="CEV">CEV - Commissioning Equipment Verification (45,770 uses)</option>
+                                <option value="FPT">FPT - Functional Performance Test (24,892 uses)</option>
+                                <option value="LCO3">LCO3 - Line Circuit (8,160 uses)</option>
+                                <option value="Cable">Cable FPT (5,358 uses)</option>
+                            </select>
+                        </div>
+                        <div id="rsbL3Options" style="display: none;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                                <div>
+                                    <label style="display: block; font-weight: 500; color: #555; margin-bottom: 4px; font-size: 12px;">Area</label>
+                                    <select id="rsbArea" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
+                                        <option value="ERA">ERA</option>
+                                        <option value="ERB">ERB</option>
+                                        <option value="ERC">ERC</option>
+                                        <option value="ERD">ERD</option>
+                                        <option value="DHA">DHA</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-weight: 500; color: #555; margin-bottom: 4px; font-size: 12px;">Number</label>
+                                    <select id="rsbNumber" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
+                                        <option value="01">01</option>
+                                        <option value="02">02</option>
+                                        <option value="03">03</option>
+                                        <option value="04">04</option>
+                                        <option value="05">05</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-weight: 500; color: #555; margin-bottom: 4px; font-size: 12px;">Variant</label>
+                                    <select id="rsbVariant" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
+                                        <option value="KND1">KND1</option>
+                                        <option value="TTX1">TTX1</option>
+                                        <option value="UCO2">UCO2</option>
+                                        <option value="LCO1">LCO1</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="generateRSBForm()" style="padding: 10px; background: linear-gradient(135deg, #333 0%, #555 100%); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                            Generate RSB Form →
+                        </button>
+                    </form>
+                </div>
+
+                <!-- ATS Template Card -->
+                <div style="background: #f0f4ff; border-radius: 12px; padding: 20px; border: 2px solid #ddd;">
+                    <h3 style="color: #1e40af; margin-bottom: 10px;">⚡ ATS - Automatic Transfer Switch</h3>
+                    <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                        Transfer switch commissioning forms with 81,000+ production uses
+                    </p>
+                    <form id="atsTemplateForm" style="display: flex; flex-direction: column; gap: 12px;">
+                        <div>
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 4px; font-size: 13px;">Level</label>
+                            <select id="atsLevel" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <option value="L4">L4 - Commissioning</option>
+                                <option value="L3">L3 - Combined BMS</option>
+                                <option value="L2C">L2C - Pre-Energization</option>
+                                <option value="L2">L2 - Site Arrival</option>
+                            </select>
+                        </div>
+                        <div id="atsL4Options">
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 4px; font-size: 13px;">Category</label>
+                            <select id="atsCategory" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <option value="NATs_Busway">NATs & Busway (81,123 uses)</option>
+                                <option value="FCA">FCA - Fire Control Area (15,073 uses)</option>
+                                <option value="MSG">MSG - Medium Switchgear (7,662 uses)</option>
+                                <option value="HMD">HMD - Harmonic Mitigation (3,035 uses)</option>
+                                <option value="mCUP">mCUP - Modular Critical Power (1,788 uses)</option>
+                                <option value="House">House ATS (1,367 uses)</option>
+                                <option value="FirePump">Fire Pump ATS (1,297 uses)</option>
+                                <option value="House_Gen">House with Generator (536 uses)</option>
+                                <option value="CDU">CDU - Coolant Distribution (182 uses)</option>
+                            </select>
+                        </div>
+                        <div id="atsL3Options" style="display: none;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                                <div>
+                                    <label style="display: block; font-weight: 500; color: #555; margin-bottom: 4px; font-size: 12px;">Area</label>
+                                    <select id="atsArea" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
+                                        <option value="ERA">ERA</option>
+                                        <option value="ERB">ERB</option>
+                                        <option value="ERC">ERC</option>
+                                        <option value="ERD">ERD</option>
+                                        <option value="UPSA1">UPSA1</option>
+                                        <option value="UPSB1">UPSB1</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-weight: 500; color: #555; margin-bottom: 4px; font-size: 12px;">Identifier</label>
+                                    <select id="atsIdentifier" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
+                                        <option value="FCA-1">FCA-1</option>
+                                        <option value="FCA-2">FCA-2</option>
+                                        <option value="FCA-3">FCA-3</option>
+                                        <option value="CDU-1">CDU-1</option>
+                                        <option value="H1">H1</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-weight: 500; color: #555; margin-bottom: 4px; font-size: 12px;">Variant</label>
+                                    <select id="atsVariant" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
+                                        <option value="KND1">KND1</option>
+                                        <option value="TTX1">TTX1</option>
+                                        <option value="UCO1">UCO1</option>
+                                        <option value="RMN1">RMN1</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="generateATSForm()" style="padding: 10px; background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                            Generate ATS Form →
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <p style="margin-top: 15px; font-size: 12px; color: #888; text-align: center;">
+                Templates are based on production data from the idc_acc_form_responses_datamart Hive table
+            </p>
+        </div>
+
+        <!-- Integrated Testing Form Section -->
+        <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e5e7eb;">
+            <h2 style="color: #333; margin-bottom: 8px;">🔗 Integrated Testing Form</h2>
+            <p style="color: #666; margin-bottom: 20px; font-size: 14px;">
+                Combine multiple SOO documents and Points Lists to generate a complete, unified testing form for an entire system or project.
+            </p>
+
+            <form method="POST" action="/generate-integrated" enctype="multipart/form-data" id="integratedForm">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <!-- Multiple SOO PDFs -->
+                    <div style="background: #f8f9fa; border-radius: 12px; padding: 20px; border: 2px solid #e5e7eb;">
+                        <h3 style="color: #333; margin-bottom: 15px; font-size: 16px;">📄 SOO Documents <span style="color: red;">*</span></h3>
+                        <p style="color: #666; font-size: 12px; margin-bottom: 15px;">
+                            Select SOO PDFs (CRAH, IWM, FCU, AHU, etc.) - use as many slots as needed
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="color: #666; font-size: 12px; width: 60px;">SOO #1:</span>
+                                <input type="file" name="soo_files" accept=".pdf,.md,.txt"
+                                       style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="color: #666; font-size: 12px; width: 60px;">SOO #2:</span>
+                                <input type="file" name="soo_files" accept=".pdf,.md,.txt"
+                                       style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="color: #666; font-size: 12px; width: 60px;">SOO #3:</span>
+                                <input type="file" name="soo_files" accept=".pdf,.md,.txt"
+                                       style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="color: #666; font-size: 12px; width: 60px;">SOO #4:</span>
+                                <input type="file" name="soo_files" accept=".pdf,.md,.txt"
+                                       style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="color: #666; font-size: 12px; width: 60px;">SOO #5:</span>
+                                <input type="file" name="soo_files" accept=".pdf,.md,.txt"
+                                       style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Multiple Points Lists -->
+                    <div style="background: #f0f4ff; border-radius: 12px; padding: 20px; border: 2px solid #ddd;">
+                        <h3 style="color: #1e40af; margin-bottom: 15px; font-size: 16px;">📊 Points Lists <span class="optional-badge">Optional</span></h3>
+                        <p style="color: #666; font-size: 12px; margin-bottom: 15px;">
+                            Add points lists to enrich forms with BMS point names
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="color: #666; font-size: 12px; width: 60px;">Pts #1:</span>
+                                <input type="file" name="points_files" accept=".csv,.tsv,.txt,.xlsx"
+                                       style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="color: #666; font-size: 12px; width: 60px;">Pts #2:</span>
+                                <input type="file" name="points_files" accept=".csv,.tsv,.txt,.xlsx"
+                                       style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
+                            </div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <span style="color: #666; font-size: 12px; width: 60px;">Pts #3:</span>
+                                <input type="file" name="points_files" accept=".csv,.tsv,.txt,.xlsx"
+                                       style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project Settings -->
+                <div style="background: #fefce8; border-radius: 12px; padding: 20px; border: 2px solid #fde047; margin-bottom: 20px;">
+                    <h3 style="color: #854d0e; margin-bottom: 15px; font-size: 16px;">⚙️ Project Settings</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 5px; font-size: 13px;">Project Number</label>
+                            <input type="text" name="project_number" placeholder="e.g., KND1-2"
+                                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 5px; font-size: 13px;">Building/Area</label>
+                            <input type="text" name="building_area" placeholder="e.g., Data Hall A"
+                                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-weight: 500; color: #555; margin-bottom: 5px; font-size: 13px;">Output Format</label>
+                            <select name="output_format" style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px;">
+                                <option value="combined">Combined Single Form</option>
+                                <option value="separate">Separate Forms per SOO</option>
+                                <option value="both">Both Combined & Separate</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="integratedSubmitBtn" style="width: 100%; padding: 16px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;">
+                    🔗 Generate Integrated Testing Form
+                </button>
+            </form>
+
+            <div style="margin-top: 15px; padding: 15px; background: #fffbeb; border-radius: 8px; font-size: 13px; color: #92400e;">
+                <strong>💡 Tip:</strong> Just fill in the SOO slots you need - empty slots will be ignored. The tool will automatically detect document types (CRAH, IWM, etc.) and combine them.
+            </div>
+        </div>
+
+        <!-- Progress Overlay -->
+        <div class="progress-overlay" id="progressOverlay">
+            <div class="progress-modal">
+                <div class="progress-title">🔧 Generating Forms</div>
+                <div class="progress-subtitle">Processing your SOO document...</div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="progress-percent" id="progressPercent">0%</div>
+                <div class="progress-time" id="progressTime">Elapsed: 0s</div>
+                <div class="progress-status" id="progressStatus">Initializing...</div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h4>Supported Formats</h4>
+            <ul>
+                <li><strong>SOO Document:</strong> PDF, Markdown (.md), or plain text (.txt)</li>
+                <li><strong>Points List:</strong> CSV or TSV with columns for Point Name, Type, Description, Units, Range</li>
+            </ul>
+            <p style="margin-top: 10px; font-size: 12px;"><em>{pdf_status}</em></p>
+        </div>
+    </div>
+
+    <script>
+        function setupDropZone(dropZoneId, inputId, filenameId) {
+            const dropZone = document.getElementById(dropZoneId);
+            const input = document.getElementById(inputId);
+            const filenameEl = document.getElementById(filenameId);
+
+            if (!dropZone || !input || !filenameEl) {
+                console.error('Drop zone elements not found:', dropZoneId, inputId, filenameId);
+                return;
+            }
+
+            // Drag and drop support
+            dropZone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    input.files = e.dataTransfer.files;
+                    updateFilename();
+                }
+            });
+
+            // File input change event - this is the key one!
+            input.addEventListener('change', function(e) {
+                console.log('File selected:', inputId, this.files[0]?.name);
+                updateFilename();
+            });
+
+            function updateFilename() {
+                if (input.files && input.files.length > 0) {
+                    const fileName = input.files[0].name;
+                    filenameEl.textContent = '\u2713 ' + fileName;
+                    filenameEl.style.color = '#22c55e';
+                    filenameEl.style.fontWeight = 'bold';
+                    dropZone.classList.add('has-file');
+                    console.log('Filename updated:', fileName);
+                } else {
+                    filenameEl.textContent = '';
+                    dropZone.classList.remove('has-file');
+                }
+            }
+        }
+
+        // Initialize drop zones immediately (elements exist before script runs)
+        setupDropZone('sooDropZone', 'sooFile', 'sooFilename');
+        setupDropZone('pointsDropZone', 'pointsFile', 'pointsFilename');
+        setupDropZone('exampleDropZone', 'exampleFile', 'exampleFilename');
+        console.log('Drop zones initialized');
+
+        // AI checkbox toggle info box
+        const aiCheckbox = document.getElementById('useAiCheckbox');
+        const aiInfoBox = document.getElementById('aiInfoBox');
+        aiCheckbox.addEventListener('change', () => {
+            aiInfoBox.style.display = aiCheckbox.checked ? 'block' : 'none';
+        });
+
+        // Load learned examples stats
+        async function loadExamplesStats() {
+            try {
+                const response = await fetch('/api/examples/stats');
+                const data = await response.json();
+
+                const statsDiv = document.getElementById('learnedExamplesStats');
+                const contentDiv = document.getElementById('examplesContent');
+
+                if (data.total_examples > 0) {
+                    statsDiv.style.display = 'block';
+
+                    let systemTags = '';
+                    for (const [sys, count] of Object.entries(data.by_system || {})) {
+                        systemTags += `<span style="background: #dcfce7; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-right: 5px;">${sys}: ${count}</span>`;
+                    }
+
+                    let sourceTags = '';
+                    for (const [src, count] of Object.entries(data.by_source || {})) {
+                        sourceTags += `<span style="background: #dbeafe; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-right: 5px;">${src}: ${count}</span>`;
+                    }
+
+                    contentDiv.innerHTML = `
+                        <div style="display: flex; gap: 20px; margin-bottom: 10px;">
+                            <div><strong>${data.total_examples}</strong> example forms</div>
+                            <div><strong>${data.total_items_learned}</strong> check items learned</div>
+                        </div>
+                        <div style="margin-bottom: 8px;"><strong>By System:</strong> ${systemTags || 'None'}</div>
+                        <div><strong>By Source:</strong> ${sourceTags || 'None'}</div>
+                    `;
+                }
+            } catch (error) {
+                console.log('No examples data yet');
+            }
+        }
+        loadExamplesStats();
+
+        // Handle example form upload
+        document.getElementById('exampleForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            // Debug logging
+            console.log('Form submit triggered');
+
+            const fileInput = document.getElementById('exampleFile');
+            const sourceInput = document.querySelector('input[name="source"]');
+
+            console.log('File selected:', fileInput.files.length > 0 ? fileInput.files[0].name : 'NONE');
+            console.log('Source value:', sourceInput.value);
+
+            if (!fileInput.files.length) {
+                alert('Please select an Excel or CSV file first');
+                return;
+            }
+
+            if (!sourceInput.value.trim()) {
+                alert('Please enter a Source/Company name');
+                return;
+            }
+
+            const formData = new FormData(this);
+
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Uploading & Learning...';
+
+            try {
+                console.log('Sending fetch request...');
+                const response = await fetch('/upload-example', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Response status:', response.status);
+                const result = await response.json();
+                console.log('Response data:', result);
+
+                if (result.success) {
+                    let message = `Successfully learned from "${result.filename}"\n\n`;
+                    message += `Extracted:\n`;
+                    message += `- ${result.items_learned} check items\n`;
+                    message += `- ${result.sections_learned} sections\n`;
+
+                    if (result.equipment_type) {
+                        message += `\nDetected Equipment:\n`;
+                        message += `- Type: ${result.equipment_type}\n`;
+                        if (result.level) message += `- Level: ${result.level}\n`;
+                        if (result.variant) message += `- Variant: ${result.variant}\n`;
+                    }
+
+                    if (result.section_names && result.section_names.length > 0) {
+                        message += `\nSections Found:\n`;
+                        message += result.section_names.slice(0, 5).map(s => `- ${s}`).join('\n');
+                    }
+
+                    alert(message);
+                    this.reset();
+                    document.getElementById('exampleFilename').textContent = '';
+                    document.getElementById('exampleDropZone').classList.remove('has-file');
+                    loadExamplesStats();
+                } else {
+                    alert('Failed to process example: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Upload failed: ' + error.message + '\n\nCheck browser console (F12) for details.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload & Learn from Example';
+            }
+        });
+
+        // Progress tracking
+        const form = document.getElementById('uploadForm');
+        const progressOverlay = document.getElementById('progressOverlay');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressTime = document.getElementById('progressTime');
+        const progressStatus = document.getElementById('progressStatus');
+
+        let startTime;
+        let progressInterval;
+        let currentProgress = 0;
+
+        const statusMessages = [
+            'Initializing...',
+            'Reading document...',
+            'Parsing systems and equipment...',
+            'Extracting setpoints and parameters...',
+            'Generating PFI forms...',
+            'Generating FPT forms...',
+            'Generating IST forms...',
+            'Generating CXC forms...',
+            'Rendering HTML output...',
+            'Finalizing...'
+        ];
+
+        function formatTime(seconds) {
+            if (seconds < 60) return seconds + 's';
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return mins + 'm ' + secs + 's';
+        }
+
+        function updateProgress() {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            progressTime.textContent = 'Elapsed: ' + formatTime(elapsed);
+
+            // Simulate progress (actual progress is indeterminate)
+            if (currentProgress < 90) {
+                currentProgress += Math.random() * 3;
+                if (currentProgress > 90) currentProgress = 90;
+                progressBar.style.width = currentProgress + '%';
+                progressPercent.textContent = Math.floor(currentProgress) + '%';
+            }
+
+            // Update status message based on progress
+            const statusIndex = Math.min(Math.floor(currentProgress / 10), statusMessages.length - 1);
+            progressStatus.textContent = statusMessages[statusIndex];
+        }
+
+        form.addEventListener('submit', function(e) {
+            // Show progress overlay
+            progressOverlay.classList.add('active');
+            startTime = Date.now();
+            currentProgress = 0;
+            progressBar.style.width = '0%';
+            progressPercent.textContent = '0%';
+
+            // Start progress updates
+            progressInterval = setInterval(updateProgress, 200);
+
+            // Store start time for results page
+            sessionStorage.setItem('formGenStartTime', startTime);
+        });
+
+        // RSB/ATS Template Level Toggle
+        document.getElementById('rsbLevel').addEventListener('change', function() {
+            const l4Options = document.getElementById('rsbL4Options');
+            const l3Options = document.getElementById('rsbL3Options');
+            if (this.value === 'L3') {
+                l4Options.style.display = 'none';
+                l3Options.style.display = 'block';
+            } else {
+                l4Options.style.display = 'block';
+                l3Options.style.display = 'none';
+            }
+        });
+
+        document.getElementById('atsLevel').addEventListener('change', function() {
+            const l4Options = document.getElementById('atsL4Options');
+            const l3Options = document.getElementById('atsL3Options');
+            if (this.value === 'L3') {
+                l4Options.style.display = 'none';
+                l3Options.style.display = 'block';
+            } else if (this.value === 'L4') {
+                l4Options.style.display = 'block';
+                l3Options.style.display = 'none';
+            } else {
+                // L2 or L2C - hide both
+                l4Options.style.display = 'none';
+                l3Options.style.display = 'none';
+            }
+        });
+
+        // Generate RSB Form
+        function generateRSBForm() {
+            const level = document.getElementById('rsbLevel').value;
+            let url = '/api/rsb/generate?format=html&level=' + level;
+
+            if (level === 'L4') {
+                const formType = document.getElementById('rsbFormType').value;
+                url += '&form_type=' + formType;
+            } else {
+                const area = document.getElementById('rsbArea').value;
+                const number = document.getElementById('rsbNumber').value;
+                const variant = document.getElementById('rsbVariant').value;
+                url += '&area=' + area + '&number=' + number + '&variant=' + variant;
+            }
+
+            window.open(url, '_blank');
+        }
+
+        // Generate ATS Form
+        function generateATSForm() {
+            const level = document.getElementById('atsLevel').value;
+            let url = '/api/ats/generate?format=html&level=' + level;
+
+            if (level === 'L4') {
+                const category = document.getElementById('atsCategory').value;
+                url += '&category=' + category;
+            } else if (level === 'L3') {
+                const area = document.getElementById('atsArea').value;
+                const identifier = document.getElementById('atsIdentifier').value;
+                const variant = document.getElementById('atsVariant').value;
+                url += '&area=' + area + '&identifier=' + identifier + '&variant=' + variant;
+            }
+            // L2 and L2C don't need additional params
+
+            window.open(url, '_blank');
+        }
+
+        // Multi-file display update function
+        function updateMultiFileDisplay(inputId, displayId) {
+            const input = document.getElementById(inputId);
+            const display = document.getElementById(displayId);
+            const dropZone = input.parentElement;
+
+            if (input.files && input.files.length > 0) {
+                let fileNames = [];
+                for (let i = 0; i < input.files.length; i++) {
+                    fileNames.push('✓ ' + input.files[i].name);
+                }
+                display.innerHTML = fileNames.join('<br>');
+                display.style.color = '#22c55e';
+                display.style.fontWeight = 'bold';
+                dropZone.classList.add('has-file');
+                console.log('Files selected:', input.files.length, fileNames);
+            } else {
+                display.textContent = '';
+                dropZone.classList.remove('has-file');
+            }
+        }
+
+        // Add more SOO file inputs
+        let sooFileCount = 1;
+        function addSooFile() {
+            sooFileCount++;
+            const container = document.getElementById('sooFilesList');
+            const newEntry = document.createElement('div');
+            newEntry.className = 'soo-file-entry';
+            newEntry.style.marginBottom = '10px';
+            newEntry.innerHTML = `
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="file" name="soo_files" accept=".pdf,.md,.txt"
+                           style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
+                    <span style="color: #666; font-size: 12px;">SOO #${sooFileCount}</span>
+                    <button type="button" onclick="this.parentElement.parentElement.remove()"
+                            style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">✕</button>
+                </div>
+            `;
+            container.appendChild(newEntry);
+        }
+
+        // Add more Points file inputs
+        let pointsFileCount = 1;
+        function addPointsFile() {
+            pointsFileCount++;
+            const container = document.getElementById('pointsFilesList');
+            const newEntry = document.createElement('div');
+            newEntry.className = 'points-file-entry';
+            newEntry.style.marginBottom = '10px';
+            newEntry.innerHTML = `
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="file" name="points_files" accept=".csv,.tsv,.txt,.xlsx"
+                           style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 6px; font-size: 13px;">
+                    <span style="color: #666; font-size: 12px;">Points #${pointsFileCount}</span>
+                    <button type="button" onclick="this.parentElement.parentElement.remove()"
+                            style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">✕</button>
+                </div>
+            `;
+            container.appendChild(newEntry);
+        }
+
+        // Handle integrated form submission
+        document.getElementById('integratedForm').addEventListener('submit', function(e) {
+            const sooInputs = document.querySelectorAll('input[name="soo_files"]');
+            let hasFile = false;
+            sooInputs.forEach(input => {
+                if (input.files && input.files.length > 0) hasFile = true;
+            });
+
+            if (!hasFile) {
+                e.preventDefault();
+                alert('Please select at least one SOO document');
+                return;
+            }
+
+            // Show progress overlay
+            progressOverlay.classList.add('active');
+            document.querySelector('.progress-title').textContent = '🔗 Generating Integrated Form';
+            document.querySelector('.progress-subtitle').textContent = 'Processing SOO documents...';
+            startTime = Date.now();
+            currentProgress = 0;
+            progressBar.style.width = '0%';
+            progressPercent.textContent = '0%';
+            progressInterval = setInterval(updateProgress, 200);
+            sessionStorage.setItem('formGenStartTime', startTime);
+        });
+    </script>
+{% endblock %}
+

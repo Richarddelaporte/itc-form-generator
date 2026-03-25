@@ -1,0 +1,26 @@
+{
+  "oncall": "dec_operations_quality",
+  "framework": "custom",
+  "commands": {
+    "build": "echo 'no-op'",
+    "install": "echo 'no-op'"
+  },
+  "container": {
+    "image_name": "itc_form_generator",
+    "resources": {
+      "cpu": 2,
+      "memory_mb": 4096
+    }
+  },
+  "description": "ITC Form Generator - AI-powered inspection and testing forms from SOO documents",
+  "owner": "rdelaporte",
+  "env": {
+    "METAGEN_ENABLED": "true",
+    "PYTHONUNBUFFERED": "1"
+  },
+  "secrets": [],
+  "health_check": {
+    "path": "/api/health",
+    "interval_seconds": 30
+  }
+}

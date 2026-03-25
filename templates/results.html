@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}ITC Form Generator — Results{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <h1>✅ Forms Generated Successfully</h1>
+        <p class="subtitle">{project_name}</p>
+
+        {points_info}
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">{system_count}</div>
+                <div class="stat-label">Systems</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{form_count}</div>
+                <div class="stat-label">Forms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{item_count}</div>
+                <div class="stat-label">Check Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ session.elapsed_time }}</div>
+                <div class="stat-label">Generation Time</div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="/download-zip?session={{ session_id }}" class="btn btn-primary">
+                📦 Download All (HTML ZIP)
+            </a>
+            <a href="/download-csv?session={{ session_id }}" class="btn btn-primary" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);">
+                📊 Download CSV
+            </a>
+            <a href="/download-excel?session={{ session_id }}" class="btn btn-primary" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                📈 Download Excel
+            </a>
+            <a href="/" class="btn btn-secondary">
+                &larr; Generate More Forms
+            </a>
+        </div>
+
+        {systems_html}
+
+        <!-- Feedback Learning Dashboard -->
+        <div class="feedback-section" style="margin-bottom: 20px;">
+            <h3>🧠 AI Learning Progress</h3>
+            <div id="learningDashboard">
+                <p style="color: #666;">Loading feedback data...</p>
+            </div>
+        </div>
+
+        <!-- Feedback Section -->
+        <div class="feedback-section">
+            <h3>💬 Help Us Improve</h3>
+            <p style="color: #666; margin-bottom: 20px;">
+                Your feedback helps the AI generate better forms. Tell us what worked well or what could be improved.
+            </p>
+
+            <div class="feedback-success" id="feedbackSuccess">
+                ✅ Thank you! Your feedback has been saved and will help improve future form generation.
+            </div>
+
+            <form class="feedback-form" id="feedbackForm">
+                <input type="hidden" name="session_id" value="{{ session_id }}">
+
+                <div>
+                    <label class="feedback-label">What type of feedback?</label>
+                    <div class="feedback-type-buttons">
+                        <button type="button" class="feedback-type-btn positive" data-type="positive">👍 Works Well</button>
+                        <button type="button" class="feedback-type-btn negative" data-type="negative">👎 Needs Improvement</button>
+                        <button type="button" class="feedback-type-btn suggestion" data-type="suggestion">💡 Suggestion</button>
+                        <button type="button" class="feedback-type-btn correction" data-type="correction">✏️ Correction</button>
+                    </div>
+                </div>
+
+                <div class="feedback-row">
+                    <div>
+                        <label class="feedback-label">System Type</label>
+                        <select class="feedback-select" name="system_type" id="systemType">
+                            <option value="">Select system type...</option>
+                            {system_options}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="feedback-label">Section (optional)</label>
+                        <select class="feedback-select" name="section_name" id="sectionName">
+                            <option value="">All sections / General</option>
+                            <option value="Safety">Safety</option>
+                            <option value="Installation">Installation</option>
+                            <option value="Electrical">Electrical</option>
+                            <option value="Controls">Controls</option>
+                            <option value="Setpoints">Setpoint Verification</option>
+                            <option value="Functional Tests">Functional Tests</option>
+                            <option value="Interlocks">Interlock Testing</option>
+                            <option value="Alarms">Alarm Testing</option>
+                            <option value="Documentation">Documentation</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="feedback-label">Your Feedback</label>
+                    <textarea class="feedback-textarea" name="feedback_text" id="feedbackText"
+                              placeholder="Tell us what you liked, what needs improvement, or suggest specific check items that should be added..."></textarea>
+                </div>
+
+                <div>
+                    <label class="feedback-label">Suggested Improvement (optional)</label>
+                    <input type="text" class="feedback-input" name="suggested_improvement" id="suggestedImprovement"
+                           placeholder="e.g., Add check item for refrigerant leak detection">
+                </div>
+
+                <button type="submit" class="feedback-submit-btn" id="submitFeedback">Submit Feedback</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Load and display feedback learning dashboard
+        async function loadLearningDashboard() {
+            try {
+                const response = await fetch('/api/feedback/stats');
+                const data = await response.json();
+
+                const dashboard = document.getElementById('learningDashboard');
+
+                const progressBarColor = data.learning_status.level === 'trained' ? '#22c55e' :
+                                         data.learning_status.level === 'improving' ? '#3b82f6' : '#f59e0b';
+
+                let systemsHtml = '';
+                for (const [system, count] of Object.entries(data.by_system || {})) {
+                    systemsHtml += `<span class="feedback-tag">${system}: ${count}</span>`;
+                }
+
+                let typesHtml = '';
+                const typeEmoji = { positive: '👍', negative: '👎', suggestion: '💡', correction: '✏️' };
+                for (const [type, count] of Object.entries(data.by_type || {})) {
+                    typesHtml += `<span class="feedback-tag">${typeEmoji[type] || '📝'} ${type}: ${count}</span>`;
+                }
+
+                let recentHtml = '';
+                if (data.recent_feedback && data.recent_feedback.length > 0) {
+                    recentHtml = '<div class="recent-feedback"><strong>Recent Feedback:</strong><ul>';
+                    for (const fb of data.recent_feedback.slice(0, 5)) {
+                        const emoji = typeEmoji[fb.feedback_type] || '📝';
+                        recentHtml += `<li>${emoji} <strong>[${fb.system_type}]</strong> ${fb.feedback_text}</li>`;
+                    }
+                    recentHtml += '</ul></div>';
+                }
+
+                dashboard.innerHTML = `
+                    <div class="learning-stats">
+                        <div class="learning-progress">
+                            <div class="progress-header">
+                                <span class="progress-label">Learning Progress</span>
+                                <span class="progress-value">${data.learning_status.progress}%</span>
+                            </div>
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill" style="width: ${data.learning_status.progress}%; background: ${progressBarColor};"></div>
+                            </div>
+                            <p class="progress-message">${data.learning_status.message}</p>
+                        </div>
+
+                        <div class="stats-grid">
+                            <div class="stat-mini">
+                                <span class="stat-mini-value">${data.total_feedback}</span>
+                                <span class="stat-mini-label">Total Feedback</span>
+                            </div>
+                            <div class="stat-mini">
+                                <span class="stat-mini-value">${data.recent_count}</span>
+                                <span class="stat-mini-label">This Week</span>
+                            </div>
+                            <div class="stat-mini">
+                                <span class="stat-mini-value">${Object.keys(data.by_system || {}).length}</span>
+                                <span class="stat-mini-label">Systems Learned</span>
+                            </div>
+                        </div>
+
+                        ${systemsHtml ? `<div class="feedback-tags"><strong>By System:</strong> ${systemsHtml}</div>` : ''}
+                        ${typesHtml ? `<div class="feedback-tags"><strong>By Type:</strong> ${typesHtml}</div>` : ''}
+                        ${recentHtml}
+
+                        <div class="ai-context-preview" id="aiContextPreview"></div>
+                    </div>
+                `;
+
+                // Load AI context for the first system
+                if (Object.keys(data.by_system || {}).length > 0) {
+                    const firstSystem = Object.keys(data.by_system)[0];
+                    loadAIContext(firstSystem);
+                }
+
+            } catch (error) {
+                console.error('Failed to load learning dashboard:', error);
+                document.getElementById('learningDashboard').innerHTML =
+                    '<p style="color: #666;">No feedback data yet. Submit feedback below to start improving AI generation!</p>';
+            }
+        }
+
+        async function loadAIContext(systemType) {
+            try {
+                const response = await fetch(`/api/feedback/context?system_type=${encodeURIComponent(systemType)}`);
+                const data = await response.json();
+
+                const preview = document.getElementById('aiContextPreview');
+                if (!preview) return;
+
+                if (data.ai_context && data.ai_context.trim()) {
+                    preview.innerHTML = `
+                        <details class="ai-context-details">
+                            <summary>🤖 AI Context for ${systemType} (Click to expand)</summary>
+                            <pre class="ai-context-code">${escapeHtml(data.ai_context)}</pre>
+                            <p class="ai-context-note">
+                                <strong>This context is added to AI prompts</strong> when generating forms for ${systemType} systems,
+                                helping the AI learn from your feedback and produce better check items.
+                            </p>
+                        </details>
+                    `;
+                } else {
+                    preview.innerHTML = `
+                        <p class="ai-context-empty">
+                            💡 No feedback yet for ${systemType} systems. Submit feedback to help the AI learn!
+                        </p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to load AI context:', error);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load dashboard on page load
+        loadLearningDashboard();
+
+        // Feedback form handling
+        let selectedFeedbackType = '';
+        const feedbackForm = document.getElementById('feedbackForm');
+        const feedbackSuccess = document.getElementById('feedbackSuccess');
+        const typeButtons = document.querySelectorAll('.feedback-type-btn');
+
+        typeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                typeButtons.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selectedFeedbackType = btn.dataset.type;
+            });
+        });
+
+        feedbackForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!selectedFeedbackType) {
+                alert('Please select a feedback type');
+                return;
+            }
+
+            const feedbackText = document.getElementById('feedbackText').value.trim();
+            if (!feedbackText) {
+                alert('Please enter your feedback');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitFeedback');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            try {
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        feedback_type: selectedFeedbackType,
+                        system_type: document.getElementById('systemType').value || 'General',
+                        system_name: document.getElementById('systemType').options[document.getElementById('systemType').selectedIndex]?.text || 'General',
+                        form_type: 'ITC',
+                        section_name: document.getElementById('sectionName').value,
+                        feedback_text: feedbackText,
+                        suggested_improvement: document.getElementById('suggestedImprovement').value
+                    })
+                });
+
+                if (response.ok) {
+                    feedbackSuccess.classList.add('show');
+                    feedbackForm.reset();
+                    typeButtons.forEach(b => b.classList.remove('selected'));
+                    selectedFeedbackType = '';
+
+                    setTimeout(() => {
+                        feedbackSuccess.classList.remove('show');
+                    }, 5000);
+                } else {
+                    throw new Error('Failed to submit feedback');
+                }
+            } catch (error) {
+                alert('Failed to submit feedback. Please try again.');
+                console.error(error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Feedback';
+            }
+        });
+    </script>
+{% endblock %}
+
+

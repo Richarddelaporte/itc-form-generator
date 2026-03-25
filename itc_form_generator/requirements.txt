@@ -1,0 +1,13 @@
+# ITC Form Generator - Python Dependencies
+# For Nest deployment and local development
+
+# PDF text extraction
+pymupdf>=1.23.0
+
+# Excel export support
+openpyxl>=3.1.0
+
+# AI-powered form generation (MetaGen - Meta's internal LLM API)
+# Note: metagen is only available on Meta's internal network (OD/Devserver)
+# The app will work without it, falling back to regex-based parsing
+metagen

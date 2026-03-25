@@ -1,0 +1,30 @@
+# ITC Form Generator — Docker Compose
+version: '3.8'
+
+services:
+  itc-form-generator:
+    build: .
+    container_name: itc-form-generator
+    ports:
+      - "8080:8080"
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - USE_AI=${USE_AI:-true}
+      - AI_BACKEND=${AI_BACKEND:-metagen}
+      - OUTPUT_DIR=/tmp/itc_forms
+      - LOG_LEVEL=INFO
+    volumes:
+      - form_output:/tmp/itc_forms
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  form_output:
+    driver: local
+
