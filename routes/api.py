@@ -114,7 +114,7 @@ def generate():
             mua_forms = generate_mua_form(soo_content, project_number, building_area)
             forms.extend(mua_forms)
         else:
-            generated = generator.generate(
+            generated = generator.generate_all_forms(
                 soo_data=soo_data,
                 project_number=project_number,
                 building_area=building_area,
