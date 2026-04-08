@@ -102,27 +102,6 @@ def generate():
         from itc_form_generator.parser import detect_document_type
         detected_types = detect_document_type(soo_content)
 
-        # Check for MUA-specific content
-        is_mua = 'mua' in soo_content.lower() or 'make-up air' in soo_content.lower() or 'make up air' in soo_content.lower()
-        # Generate forms
-        forms = []
-        FormGeneratorClass = services['form_generator_class']
-        generator = FormGeneratorClass(soo_data)
-
-        if is_mua:
-            from itc_form_generator.mua_form_generator import generate_mua_form
-            mua_forms = generate_mua_form(soo_content, project_number, building_area)
-            forms.extend(mua_forms)
-        else:
-            generated = generator.generate_all_forms(
-                soo_data=soo_data,
-                project_number=project_number,
-                building_area=building_area,
-                points_list=points_list,
-                detected_types=detected_types,
-            )
-            forms.extend(generated)
-
         # Export forms
         exporter = services['exporter']
         exported_files = []
