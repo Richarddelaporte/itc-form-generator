@@ -1,7 +1,6 @@
 """
-API routes — form generation, health checks, and core functionality.
+API routes - form generation, health checks, and core functionality.
 """
-
 import io
 import os
 import time
@@ -19,25 +18,17 @@ api_bp = Blueprint('api', __name__)
 
 @api_bp.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint for Nest/load balancers."""
+    """Health check endpoint."""
     return jsonify({
         'status': 'healthy',
-        'version': current_app.config['APP_VERSION'],
-        'app': current_app.config['APP_NAME'],
+        'version': current_app.config.get('APP_VERSION', '2.0'),
+        'app': current_app.config.get('APP_NAME', 'ITC Form Generator'),
     })
 
 
 @api_bp.route('/generate', methods=['POST'])
 def generate():
-    """Generate ITC forms from uploaded SOO document and optional points list.
-
-    Accepts multipart form data with:
-    - soo_file: SOO document (required, .md/.txt/.pdf)
-    - points_file: Points list (optional, .csv/.xlsx)
-    - project_number: Project identifier
-    - building_area: Building/area name
-    - use_ai: Enable AI-enhanced parsing (default: true)
-    """
+    """Generate ITC forms from uploaded SOO document and optional points list."""
     try:
         # Validate required file
         if 'soo_file' not in request.files:
@@ -48,7 +39,7 @@ def generate():
             return jsonify(error='No file selected'), 400
 
         # Validate file extension
-        allowed = current_app.config['UPLOAD_EXTENSIONS']
+        allowed = current_app.config.get('UPLOAD_EXTENSIONS', {'.md', '.txt', '.pdf'})
         soo_ext = os.path.splitext(soo_file.filename)[1].lower()
         if soo_ext not in allowed:
             return jsonify(error=f'Unsupported file type: {soo_ext}'), 400
@@ -60,7 +51,7 @@ def generate():
 
         start_time = time.time()
         session_id = str(uuid.uuid4())[:8]
-        output_dir = os.path.join(current_app.config['OUTPUT_DIR'], session_id)
+        output_dir = os.path.join(current_app.config.get('OUTPUT_DIR', '/tmp/itc_forms'), session_id)
         os.makedirs(output_dir, exist_ok=True)
 
         services = current_app.services
@@ -68,12 +59,15 @@ def generate():
         # Read SOO document
         soo_content = ''
         if soo_ext == '.pdf':
-            from itc_form_generator.pdf_parser import PDFParser
-            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
-                soo_file.save(tmp.name)
-                pdf_parser = PDFParser()
-                soo_content = pdf_parser.extract_text_from_file(tmp.name)
-                os.unlink(tmp.name)
+            try:
+                from itc_form_generator.pdf_parser import PDFParser
+                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+                    soo_file.save(tmp.name)
+                    pdf_parser = PDFParser()
+                    soo_content = pdf_parser.extract_text_from_file(tmp.name)
+                    os.unlink(tmp.name)
+            except ImportError:
+                return jsonify(error='PDF parsing not available (pymupdf not installed)'), 500
         else:
             soo_content = soo_file.read().decode('utf-8', errors='replace')
 
@@ -84,128 +78,100 @@ def generate():
         points_list = None
         points_file = request.files.get('points_file')
         if points_file and points_file.filename:
-            pts_ext = os.path.splitext(points_file.filename)[1].lower()
-            if pts_ext in ('.csv', '.tsv'):
-                pts_content = points_file.read().decode('utf-8', errors='replace')
-                points_list = services['points_parser'].parse(pts_content, points_file.filename)
-            elif pts_ext in ('.xlsx', '.xls'):
-                with tempfile.NamedTemporaryFile(suffix=pts_ext, delete=False) as tmp:
-                    points_file.save(tmp.name)
-                    points_list = services['points_parser'].parse(tmp.name, points_file.filename)
-                    os.unlink(tmp.name)
+            try:
+                pts_ext = os.path.splitext(points_file.filename)[1].lower()
+                if pts_ext in ('.csv', '.tsv'):
+                    pts_content = points_file.read().decode('utf-8', errors='replace')
+                    points_list = services['points_parser'].parse(pts_content, points_file.filename)
+                elif pts_ext in ('.xlsx', '.xls'):
+                    with tempfile.NamedTemporaryFile(suffix=pts_ext, delete=False) as tmp:
+                        points_file.save(tmp.name)
+                        points_list = services['points_parser'].parse(tmp.name, points_file.filename)
+                        os.unlink(tmp.name)
+            except Exception as e:
+                logger.warning(f"Points list parsing failed: {e}")
 
         # Parse SOO document
         parser = services['parser']
         soo_data = parser.parse(soo_content)
 
-        # Detect document/equipment types
-        from itc_form_generator.parser import detect_document_type
-        detected_types = detect_document_type(soo_content)
+        # Generate forms using FormGenerator
+        FormGeneratorClass = services['form_generator_class']
+        generator = FormGeneratorClass(soo_data, points_list=points_list)
+        inspection_forms = generator.generate_all_forms()
 
-        # Export forms
-        exporter = services['exporter']
+        # Render each form to HTML and save
         exported_files = []
-
-        # Convert form dicts to InspectionForm objects for the ACC exporter
-        from itc_form_generator.models import InspectionForm, FormSection, CheckItem, FormType, CheckItemType, Priority
-        inspection_forms = []
-        for form in forms:
-            try:
-                form_type_str = form.get('form_type', form.get('system_type', 'ITC'))
-                form_type = FormType(form_type_str) if form_type_str in [ft.value for ft in FormType] else FormType.ITC
-
-                sections = []
-                for sec in form.get('sections', []):
-                    items = []
-                    for idx, item in enumerate(sec.get('items', sec.get('check_items', []))):
-                        check_type_str = item.get('check_type', 'Verification')
-                        try:
-                            check_type = CheckItemType(check_type_str)
-                        except ValueError:
-                            check_type = CheckItemType.VERIFICATION
-                        priority_str = item.get('priority', 'Medium')
-                        try:
-                            priority = Priority(priority_str)
-                        except ValueError:
-                            priority = Priority.MEDIUM
-                        items.append(CheckItem(
-                            id=item.get('id', f"{idx+1}"),
-                            description=item.get('description', ''),
-                            check_type=check_type,
-                            priority=priority,
-                            acceptance_criteria=item.get('acceptance_criteria', ''),
-                            method=item.get('method', ''),
-                            expected_value=item.get('expected_value', ''),
-                        ))
-                    sections.append(FormSection(
-                        title=sec.get('name', sec.get('title', '')),
-                        description=sec.get('description', ''),
-                        check_items=items,
-                    ))
-                inspection_forms.append(InspectionForm(
-                    form_type=form_type,
-                    title=form.get('name', form.get('title', '')),
-                    system=form.get('system_type', form.get('system', '')),
-                    system_tag=form.get('system_tag', ''),
-                    project=project_number,
-                    sections=sections,
-                ))
-            except Exception as e:
-                logger.warning(f"Could not convert form to InspectionForm: {e}")
-
-        for form in forms:
-            # Render to HTML
+        try:
             from itc_form_generator.renderer import HTMLRenderer
             renderer = HTMLRenderer()
-            html_content = renderer.render(form)
+        except ImportError:
+            renderer = None
 
-            filename = f"{form.get('system_type', 'form')}_{form.get('name', 'output')}.html"
-            filename = secure_filename(filename)
-            filepath = os.path.join(output_dir, filename)
+        for form in inspection_forms:
+            try:
+                if renderer:
+                    html_content = renderer.render(form)
+                    # Build safe filename from form attributes
+                    system_name = getattr(form, 'system', '') or 'form'
+                    form_title = getattr(form, 'title', '') or 'output'
+                    filename = f"{system_name}_{form_title}.html"
+                    filename = secure_filename(filename)
+                    filepath = os.path.join(output_dir, filename)
+                    with open(filepath, 'w', encoding='utf-8') as f:
+                        f.write(html_content)
+                    exported_files.append({
+                        'filename': filename,
+                        'system_type': system_name,
+                        'name': form_title,
+                        'sections': len(getattr(form, 'sections', [])),
+                    })
+            except Exception as e:
+                logger.warning(f"Form rendering failed: {e}")
 
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-
-            exported_files.append({
-                'filename': filename,
-                'system_type': form.get('system_type', 'Unknown'),
-                'name': form.get('name', ''),
-                'sections': len(form.get('sections', [])),
-            })
-
-        # Export all forms to a single ACC Excel workbook
+        # Export to ACC Excel workbook
         if inspection_forms:
             try:
-                excel_filename = secure_filename(f"{project_number or 'itc'}_acc_checklist.xlsx")
-                excel_path = os.path.join(output_dir, excel_filename)
-                excel_bytes = exporter.export_to_acc_excel(
-                    inspection_forms,
-                    project_number=project_number,
-                )
-                if excel_bytes:
-                    with open(excel_path, 'wb') as ef:
-                        ef.write(excel_bytes)
-                    exported_files.append({
-                        'filename': excel_filename,
-                        'system_type': 'ACC',
-                        'name': 'ACC Checklist (Excel)',
-                        'format': 'excel',
-                    })
+                exporter = services.get('exporter')
+                if exporter:
+                    excel_filename = secure_filename(f"{project_number or 'itc'}_acc_checklist.xlsx")
+                    excel_path = os.path.join(output_dir, excel_filename)
+                    excel_bytes = exporter.export_to_acc_excel(
+                        inspection_forms,
+                        project_number=project_number,
+                    )
+                    if excel_bytes:
+                        with open(excel_path, 'wb') as ef:
+                            ef.write(excel_bytes)
+                        exported_files.append({
+                            'filename': excel_filename,
+                            'system_type': 'ACC',
+                            'name': 'ACC Checklist (Excel)',
+                            'format': 'excel',
+                        })
             except Exception as e:
                 logger.warning(f"ACC Excel export failed: {e}")
 
         elapsed = round(time.time() - start_time, 2)
 
+        # Get points summary safely
+        points_summary = None
+        if points_list:
+            points_summary = getattr(points_list, 'summary', None)
+            if points_summary is None:
+                points_summary = {'total_points': len(getattr(points_list, 'points', []))}
+
         # Store session data
+        if not hasattr(current_app, 'sessions'):
+            current_app.sessions = {}
+
         current_app.sessions[session_id] = {
-            'forms': forms,
-            'inspection_forms': inspection_forms,
+            'forms': inspection_forms,
             'files': exported_files,
             'output_dir': output_dir,
             'project_number': project_number,
             'building_area': building_area,
-            'detected_types': detected_types,
-            'points_summary': points_list.summary if points_list else None,
+            'points_summary': points_summary,
             'elapsed_time': elapsed,
             'created_at': time.time(),
         }
@@ -213,11 +179,10 @@ def generate():
         return jsonify({
             'success': True,
             'session_id': session_id,
-            'forms_generated': len(forms),
+            'forms_generated': len(inspection_forms),
             'files': exported_files,
             'elapsed_seconds': elapsed,
-            'detected_types': detected_types,
-            'points_summary': points_list.summary if points_list else None,
+            'points_summary': points_summary,
             'results_url': f'/results/{session_id}',
         })
 
@@ -242,12 +207,10 @@ def generate_from_template():
         level = data.get('level', 'L1')
 
         session_id = str(uuid.uuid4())[:8]
-        output_dir = os.path.join(current_app.config['OUTPUT_DIR'], session_id)
+        output_dir = os.path.join(current_app.config.get('OUTPUT_DIR', '/tmp/itc_forms'), session_id)
         os.makedirs(output_dir, exist_ok=True)
-
         start_time = time.time()
 
-        # Import template generators
         if template_type == 'RSB':
             from itc_form_generator.rsb_templates import generate_rsb_form
             form_data = generate_rsb_form(
@@ -263,7 +226,6 @@ def generate_from_template():
         else:
             return jsonify(error=f'Unknown template type: {template_type}'), 400
 
-        # Render and save
         from itc_form_generator.renderer import HTMLRenderer
         renderer = HTMLRenderer()
         html_content = renderer.render(form_data)
@@ -271,11 +233,13 @@ def generate_from_template():
         filename = f"{template_type}_{variant}_{area}.html"
         filename = secure_filename(filename)
         filepath = os.path.join(output_dir, filename)
-
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(html_content)
 
         elapsed = round(time.time() - start_time, 2)
+
+        if not hasattr(current_app, 'sessions'):
+            current_app.sessions = {}
 
         current_app.sessions[session_id] = {
             'forms': [form_data],
@@ -294,12 +258,11 @@ def generate_from_template():
             'results_url': f'/results/{session_id}',
         })
 
+    except ImportError as e:
+        return jsonify(error=f'Template module not available: {e}'), 500
     except Exception as e:
         logger.error(f"Template generation failed: {e}", exc_info=True)
         return jsonify(error=str(e)), 500
-
-
-
 
 
 @api_bp.route('/upload-example', methods=['POST'])
@@ -315,11 +278,12 @@ def upload_example():
 
         from itc_form_generator.example_form_parser import get_example_store
         store = get_example_store()
-
         content = file.read().decode('utf-8', errors='replace')
         result = store.learn_from_example(content, file.filename)
 
         return jsonify(success=True, message=f'Learned from {file.filename}', details=result)
+    except ImportError:
+        return jsonify(error='Example form parser not available'), 500
     except Exception as e:
         return jsonify(error=str(e)), 500
 
@@ -329,8 +293,6 @@ def generate_integrated():
     """Generate forms using integrated template system."""
     try:
         services = current_app.services
-
-        # Get form data
         soo_file = request.files.get('soo_file')
         if not soo_file:
             return jsonify(error='No SOO file provided'), 400
@@ -340,11 +302,9 @@ def generate_integrated():
         project_number = request.form.get('project_number', '')
         building_area = request.form.get('building_area', '')
 
-        # Parse SOO
         parser = services['parser']
         soo_data = parser.parse(soo_content)
 
-        # Generate with template integration
         from itc_form_generator.template_integration import generate_integrated_form
         result = generate_integrated_form(
             soo_data=soo_data,
